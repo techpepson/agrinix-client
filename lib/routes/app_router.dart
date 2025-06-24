@@ -1,3 +1,6 @@
+import "package:agrinix/screens/auth/login.dart";
+import "package:agrinix/screens/auth/register.dart";
+import "package:agrinix/screens/onboarding/onboarding_screen.dart";
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 
@@ -6,14 +9,20 @@ final GoRouter router = GoRouter(
     GoRoute(
       path: '/',
       builder: (context, state) {
-        return Placeholder();
+        return Login();
       },
     ),
-    StatefulShellRoute.indexedStack(
-      builder: (context, state, navigationShell) {
-        return Placeholder();
+    GoRoute(
+      path: '/register',
+      builder: (context, state) {
+        return Register();
       },
-      branches: <StatefulShellBranch>[],
+    ),
+    GoRoute(
+      path: '/onboard',
+      builder: (context, state) {
+        return OnboardingScreen();
+      },
     ),
   ],
 );
