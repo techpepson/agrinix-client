@@ -24,6 +24,7 @@ class _RegisterState extends State<Register> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    FocusManager.instance.primaryFocus?.unfocus();
 
     super.dispose();
   }
@@ -189,7 +190,7 @@ class _RegisterState extends State<Register> {
         const Text('Already have an account?'),
         TextButton(
           onPressed: () {
-            context.go('/login');
+            context.go('/');
           },
           child: const Text('Login'),
         ),

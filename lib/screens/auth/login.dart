@@ -20,6 +20,7 @@ class _LoginState extends State<Login> {
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    FocusManager.instance.primaryFocus?.unfocus();
     super.dispose();
   }
 
@@ -166,7 +167,7 @@ class _LoginState extends State<Login> {
         const Text('Don\'t have an account?'),
         TextButton(
           onPressed: () {
-            context.go('/');
+            context.go('/register');
           },
           child: const Text('Register'),
         ),
