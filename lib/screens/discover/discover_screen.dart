@@ -1,11 +1,13 @@
 import "package:agrinix/config/fonts/font_sizes.dart";
-import "package:agrinix/core/services/crop_disease_list.dart";
+import "package:agrinix/core/services/app_services.dart";
+import "package:agrinix/core/services/weather_services.dart";
 import "package:agrinix/data/discover_page_data.dart";
 import "package:agrinix/providers/fetch_crop_pest_provider.dart";
+import "package:cached_network_image/cached_network_image.dart";
 import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:glassmorphism_ui/glassmorphism_ui.dart";
-import 'dart:developer' as dev;
+import "package:geolocator/geolocator.dart";
 
 class DiscoverScreen extends ConsumerStatefulWidget {
   const DiscoverScreen({super.key});
@@ -18,41 +20,78 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
   List<Map<String, dynamic>> pestList = [];
   bool isPestFetchFailed = false;
   bool isLoadingPestFetch = false;
-  final DiscoverPageData _discoverPageData = DiscoverPageData();
+  Map<String, dynamic> weatherData = {};
+  bool isLoadingWeather = false;
+  Position? currentPosition;
+  String locationStatus = 'Getting location...';
+
+  AppServices appServices = AppServices();
+  WeatherServices weatherServices = WeatherServices();
+
+  Future<void> getLocationAndWeather() async {
+    try {
+      setState(() {
+        locationStatus = 'Getting location...';
+        isLoadingWeather = true;
+      });
+
+      Position position = await appServices.determineUserLocation();
+
+      setState(() {
+        currentPosition = position;
+        locationStatus = 'Location obtained!';
+      });
+
+      // Fetch weather data using the position
+      final weather = await weatherServices.getWeatherForLocation(position);
+
+      setState(() {
+        weatherData = weather;
+        isLoadingWeather = false;
+      });
+    } catch (e) {
+      setState(() {
+        locationStatus = 'Location error: $e';
+        isLoadingWeather = false;
+      });
+    }
+  }
 
   @override
   void initState() {
     super.initState();
-    // Listen for changes to the provider and update state accordingly
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.listen(fetchPestDiseaseProvider, (previous, next) {
-        next.when(
-          data: (data) {
-            setState(() {
-              pestList = data;
-              isPestFetchFailed = false;
-              isLoadingPestFetch = false;
-            });
-          },
-          error: (error, stack) {
-            setState(() {
-              isPestFetchFailed = true;
-              isLoadingPestFetch = false;
-            });
-          },
-          loading: () {
-            setState(() {
-              isLoadingPestFetch = true;
-              isPestFetchFailed = false;
-            });
-          },
-        );
-      });
-    });
+    // Initialize with default weather data
+    weatherData = {
+      'currentDay': 'Loading...',
+      'currentMonth': '',
+      'currentYear': DateTime.now().year,
+      'description': 'sunny',
+      'temperature': 0,
+      'weatherData': [
+        {'name': 'Humidity', 'value': 0, 'unit': '%'},
+        {'name': 'Wind Speed', 'value': 0, 'unit': 'm/s'},
+        {'name': 'UV Index', 'value': '0', 'unit': ''},
+        {'name': 'Pressure', 'value': 0, 'unit': 'hPa'},
+      ],
+    };
+
+    // Call getLocationAndWeather only once when widget initializes
+    getLocationAndWeather();
   }
 
   @override
   Widget build(BuildContext context) {
+    final provider = ref.read(fetchPestDiseaseProvider);
+    provider.when(
+      data: (data) {
+        pestList = data;
+      },
+      error: (error, trace) {},
+      loading: () {},
+    );
+
+    // getLocationAndWeather() is now called in initState to avoid multiple calls
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
@@ -97,31 +136,102 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                 children: [
                   const SizedBox(height: 24),
                   Text(
-                    'Plant Conditions',
+                    'Explore Plant Conditions',
                     style: Theme.of(context).textTheme.titleLarge,
                   ),
                   const SizedBox(height: 12),
-                  _buildCropList(context),
                 ],
               ),
             ),
           ),
+          if (isLoadingPestFetch)
+            const SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(vertical: 32),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+            )
+          else if (isPestFetchFailed)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Center(
+                  child: Text(
+                    'Failed to load pest data.',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ),
+              ),
+            )
+          else if (pestList.isEmpty)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 32),
+                child: Center(
+                  child: Text(
+                    'No pest data found.',
+                    style: Theme.of(context).textTheme.bodyLarge,
+                  ),
+                ),
+              ),
+            )
+          else
+            SliverList(
+              delegate: SliverChildBuilderDelegate((context, index) {
+                return Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: FontSizes.marginMd,
+                    vertical: 8,
+                  ),
+                  child: _buildCropCard(context, pestList[index]),
+                );
+              }, childCount: pestList.length),
+            ),
         ],
       ),
     );
   }
 
   Widget _buildWeatherOverlay(BuildContext context) {
-    String weatherDescription = _discoverPageData.weatherData['description'];
+    // Use weatherData if available, otherwise show loading
+    if (weatherData.isEmpty || isLoadingWeather) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        child: const Center(
+          child: CircularProgressIndicator(color: Colors.white),
+        ),
+      );
+    }
+
+    String weatherDescription = weatherData['description'] ?? 'sunny';
     IconData iconData = Icons.sunny;
 
-    switch (weatherDescription) {
+    switch (weatherDescription.toLowerCase()) {
       case "sunny":
+      case "clear":
         iconData = Icons.sunny;
         break;
       case "rainy":
+      case "rain":
         iconData = Icons.water;
         break;
+      case "cloudy":
+      case "clouds":
+      case "overcast":
+        iconData = Icons.cloud;
+        break;
+      case "snow":
+        iconData = Icons.ac_unit;
+        break;
+      case "thunderstorm":
+        iconData = Icons.thunderstorm;
+        break;
+      case "fog":
+      case "mist":
+        iconData = Icons.foggy;
+        break;
+      default:
+        iconData = Icons.cloud; // Default to cloud for unknown conditions
     }
     return Container(
       padding: const EdgeInsets.all(20),
@@ -137,7 +247,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    "${_discoverPageData.weatherData["currentDay"]}, ${_discoverPageData.weatherData["currentMonth"]} ${_discoverPageData.weatherData["currentYear"]}",
+                    "${weatherData['currentDay']}, ${weatherData['currentMonth']} ${weatherData['currentYear']}",
                     style: Theme.of(
                       context,
                     ).textTheme.bodyMedium?.copyWith(color: Colors.white),
@@ -147,7 +257,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Text(
-                        "${_discoverPageData.weatherData['temperature']}°C",
+                        "${weatherData['temperature']}°C",
                         style: Theme.of(
                           context,
                         ).textTheme.displayLarge?.copyWith(
@@ -189,10 +299,10 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         separatorBuilder: (context, index) {
           return SizedBox(width: 10);
         },
-        itemCount: _discoverPageData.weatherData['weatherData'].length,
+        itemCount: weatherData['weatherData']?.length ?? 0,
         scrollDirection: Axis.horizontal,
         itemBuilder: (context, index) {
-          final item = _discoverPageData.weatherData['weatherData'][index];
+          final item = weatherData['weatherData'][index];
 
           IconData iconData;
           switch (item['name']) {
@@ -248,79 +358,137 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
     );
   }
 
-  Widget _buildCropList(BuildContext context) {
-    if (isLoadingPestFetch) {
-      return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 32),
-        child: Center(child: CircularProgressIndicator()),
-      );
+  Widget _buildCropCard(BuildContext context, Map<String, dynamic> pest) {
+    final images = pest['images'] as List<dynamic>?;
+    String? imageUrl;
+
+    if (images != null && images.isNotEmpty) {
+      // Try to get a smaller image URL first (often more accessible)
+      final image = images[0];
+      imageUrl =
+          image['thumbnail'] as String? ??
+          image['small_url'] as String? ??
+          image['medium_url'] as String? ??
+          image['original_url'] as String?;
     }
-    if (isPestFetchFailed) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 32),
-        child: Center(
-          child: Text(
-            'Failed to load pest data.',
-            style: Theme.of(context).textTheme.bodyLarge,
+
+    return Container(
+      height: 250,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withAlpha(70),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
-        ),
-      );
-    }
-    if (pestList.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 32),
-        child: Center(
-          child: Text(
-            'No pest data found.',
-            style: Theme.of(context).textTheme.bodyLarge,
-          ),
-        ),
-      );
-    }
-    // Show a scrollable list of pest cards
-    return SizedBox(
-      height: 160,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: pestList.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 16),
-        itemBuilder: (context, index) {
-          final pest = pestList[index];
-          return Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Stack(
+          children: [
+            // Background Image
+            if (imageUrl != null)
+              CachedNetworkImage(
+                imageUrl: imageUrl,
+                width: double.infinity,
+                height: double.infinity,
+                fit: BoxFit.cover,
+                httpHeaders: {
+                  'User-Agent':
+                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                  'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+                  'Accept-Language': 'en-US,en;q=0.9',
+                  'Cache-Control': 'cache',
+                },
+                errorWidget:
+                    (context, url, error) => Container(
+                      width: double.infinity,
+                      height: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Colors.grey[300]!, Colors.grey[400]!],
+                        ),
+                      ),
+                      child: const Icon(
+                        Icons.broken_image,
+                        color: Colors.grey,
+                        size: 40,
+                      ),
+                    ),
+                placeholder:
+                    (context, url) => Container(
+                      width: double.infinity,
+                      height: double.infinity,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Colors.grey[200]!, Colors.grey[300]!],
+                        ),
+                      ),
+                      child: const Center(child: CircularProgressIndicator()),
+                    ),
+              )
+            else
+              Container(
+                width: double.infinity,
+                height: double.infinity,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Colors.grey[300]!, Colors.grey[400]!],
+                  ),
+                ),
+                child: const Icon(
+                  Icons.image_not_supported,
+                  color: Colors.grey,
+                  size: 40,
+                ),
+              ),
+            // Gradient overlay for better text readability
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black.withAlpha(56)],
+                ),
+              ),
             ),
-            elevation: 2,
-            child: Container(
-              width: 220,
-              padding: const EdgeInsets.all(16),
+            // Pest name overlay
+            Positioned(
+              bottom: 16,
+              left: 16,
+              right: 16,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    pest['commonName'] ?? '',
-                    style: Theme.of(context).textTheme.titleMedium,
+                    pest['common_name'] ?? 'Unknown Pest',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    pest['scientificName'] ?? '',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                  const Spacer(),
-                  Text(
-                    pest['host'] ?? '',
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
+                  if (pest['scientific_name'] != null)
+                    Text(
+                      pest['scientific_name'],
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Colors.white.withOpacity(0.8),
+                        fontStyle: FontStyle.italic,
+                      ),
+                    ),
                 ],
               ),
             ),
-          );
-        },
+          ],
+        ),
       ),
     );
-  }
-
-  Widget _buildCropCard(BuildContext context, Map<String, dynamic> crop) {
-    return GlassContainer();
   }
 }

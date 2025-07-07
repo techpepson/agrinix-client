@@ -23,8 +23,6 @@ class CropDiseases {
       final data = (response.data['data']);
       final elements = List<Map<String, dynamic>>.from(data);
 
-      dev.log(elements.toString());
-
       return elements;
 
       //encode the response from the server
