@@ -8,6 +8,7 @@ import "package:flutter/material.dart";
 import "package:flutter_riverpod/flutter_riverpod.dart";
 import "package:glassmorphism_ui/glassmorphism_ui.dart";
 import "package:geolocator/geolocator.dart";
+import "package:go_router/go_router.dart";
 
 class DiscoverScreen extends ConsumerStatefulWidget {
   const DiscoverScreen({super.key});
@@ -93,101 +94,108 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
     // getLocationAndWeather() is now called in initState to avoid multiple calls
 
     return Scaffold(
-      body: CustomScrollView(
-        slivers: [
-          SliverAppBar(
-            expandedHeight: 340,
-            floating: true,
-            pinned: true,
-            flexibleSpace: FlexibleSpaceBar(
-              background: Stack(
-                fit: StackFit.expand,
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      image: DecorationImage(
-                        image: AssetImage("assets/images/capture-crop.jpg"),
-                        fit: BoxFit.cover,
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // Refresh both weather and pest data
+          await getLocationAndWeather();
+          // You can also refresh pest data here if needed
+        },
+        child: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              expandedHeight: 340,
+              floating: true,
+              pinned: true,
+              flexibleSpace: FlexibleSpaceBar(
+                background: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Container(
+                      decoration: BoxDecoration(
+                        image: DecorationImage(
+                          image: AssetImage("assets/images/capture-crop.jpg"),
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
-                  ),
-                  Container(color: Colors.black.withAlpha(170)),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    child: SizedBox(
-                      width: MediaQuery.of(context).size.width - 10,
-                      child: _buildWeatherOverlay(context),
+                    Container(color: Colors.black.withAlpha(170)),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      child: SizedBox(
+                        width: MediaQuery.of(context).size.width - 10,
+                        child: _buildWeatherOverlay(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.symmetric(
+                  horizontal: FontSizes.marginMd,
+                  vertical: FontSizes.marginMd,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 24),
+                    Text(
+                      'Explore Plant Conditions',
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
+                ),
+              ),
+            ),
+            if (isLoadingPestFetch)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Center(child: CircularProgressIndicator()),
+                ),
+              )
+            else if (isPestFetchFailed)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: Center(
+                    child: Text(
+                      'Failed to load pest data.',
+                      style: Theme.of(context).textTheme.bodyLarge,
                     ),
                   ),
-                ],
-              ),
-            ),
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.symmetric(
-                horizontal: FontSizes.marginMd,
-                vertical: FontSizes.marginMd,
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 24),
-                  Text(
-                    'Explore Plant Conditions',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ),
-            ),
-          ),
-          if (isLoadingPestFetch)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            )
-          else if (isPestFetchFailed)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32),
-                child: Center(
-                  child: Text(
-                    'Failed to load pest data.',
-                    style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              )
+            else if (pestList.isEmpty)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  child: Center(
+                    child: Text(
+                      'No pest data found.',
+                      style: Theme.of(context).textTheme.bodyLarge,
+                    ),
                   ),
                 ),
+              )
+            else
+              SliverList(
+                delegate: SliverChildBuilderDelegate((context, index) {
+                  return Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: FontSizes.marginMd,
+                      vertical: 8,
+                    ),
+                    child: _buildCropCard(context, pestList[index]),
+                  );
+                }, childCount: pestList.length),
               ),
-            )
-          else if (pestList.isEmpty)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32),
-                child: Center(
-                  child: Text(
-                    'No pest data found.',
-                    style: Theme.of(context).textTheme.bodyLarge,
-                  ),
-                ),
-              ),
-            )
-          else
-            SliverList(
-              delegate: SliverChildBuilderDelegate((context, index) {
-                return Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: FontSizes.marginMd,
-                    vertical: 8,
-                  ),
-                  child: _buildCropCard(context, pestList[index]),
-                );
-              }, childCount: pestList.length),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -372,121 +380,127 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
           image['original_url'] as String?;
     }
 
-    return Container(
-      height: 250,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withAlpha(70),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Stack(
-          children: [
-            // Background Image
-            if (imageUrl != null)
-              CachedNetworkImage(
-                imageUrl: imageUrl,
-                width: double.infinity,
-                height: double.infinity,
-                fit: BoxFit.cover,
-                httpHeaders: {
-                  'User-Agent':
-                      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-                  'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
-                  'Accept-Language': 'en-US,en;q=0.9',
-                  'Cache-Control': 'cache',
-                },
-                errorWidget:
-                    (context, url, error) => Container(
-                      width: double.infinity,
-                      height: double.infinity,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Colors.grey[300]!, Colors.grey[400]!],
-                        ),
-                      ),
-                      child: const Icon(
-                        Icons.broken_image,
-                        color: Colors.grey,
-                        size: 40,
-                      ),
-                    ),
-                placeholder:
-                    (context, url) => Container(
-                      width: double.infinity,
-                      height: double.infinity,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Colors.grey[200]!, Colors.grey[300]!],
-                        ),
-                      ),
-                      child: const Center(child: CircularProgressIndicator()),
-                    ),
-              )
-            else
-              Container(
-                width: double.infinity,
-                height: double.infinity,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Colors.grey[300]!, Colors.grey[400]!],
-                  ),
-                ),
-                child: const Icon(
-                  Icons.image_not_supported,
-                  color: Colors.grey,
-                  size: 40,
-                ),
-              ),
-            // Gradient overlay for better text readability
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withAlpha(56)],
-                ),
-              ),
-            ),
-            // Pest name overlay
-            Positioned(
-              bottom: 16,
-              left: 16,
-              right: 16,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    pest['common_name'] ?? 'Unknown Pest',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  if (pest['scientific_name'] != null)
-                    Text(
-                      pest['scientific_name'],
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withOpacity(0.8),
-                        fontStyle: FontStyle.italic,
-                      ),
-                    ),
-                ],
-              ),
+    return GestureDetector(
+      onTap: () {
+        // Navigate to single pest info page
+        context.push('/discover/pest/${pest['id']}', extra: pest);
+      },
+      child: Container(
+        height: 250,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withAlpha(70),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
             ),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            children: [
+              // Background Image
+              if (imageUrl != null)
+                CachedNetworkImage(
+                  imageUrl: imageUrl,
+                  width: double.infinity,
+                  height: double.infinity,
+                  fit: BoxFit.cover,
+                  httpHeaders: {
+                    'User-Agent':
+                        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                    'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+                    'Accept-Language': 'en-US,en;q=0.9',
+                    'Cache-Control': 'cache',
+                  },
+                  errorWidget:
+                      (context, url, error) => Container(
+                        width: double.infinity,
+                        height: double.infinity,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Colors.grey[300]!, Colors.grey[400]!],
+                          ),
+                        ),
+                        child: const Icon(
+                          Icons.broken_image,
+                          color: Colors.grey,
+                          size: 40,
+                        ),
+                      ),
+                  placeholder:
+                      (context, url) => Container(
+                        width: double.infinity,
+                        height: double.infinity,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Colors.grey[200]!, Colors.grey[300]!],
+                          ),
+                        ),
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                )
+              else
+                Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Colors.grey[300]!, Colors.grey[400]!],
+                    ),
+                  ),
+                  child: const Icon(
+                    Icons.image_not_supported,
+                    color: Colors.grey,
+                    size: 40,
+                  ),
+                ),
+              // Gradient overlay for better text readability
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black.withAlpha(56)],
+                  ),
+                ),
+              ),
+              // Pest name overlay
+              Positioned(
+                bottom: 16,
+                left: 16,
+                right: 16,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      pest['common_name'] ?? 'Unknown Pest',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    if (pest['scientific_name'] != null)
+                      Text(
+                        pest['scientific_name'],
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: Colors.white.withOpacity(0.8),
+                          fontStyle: FontStyle.italic,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

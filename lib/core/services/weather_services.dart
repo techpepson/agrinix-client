@@ -1,23 +1,27 @@
 import 'package:dio/dio.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:developer' as dev;
 
 class WeatherServices {
   final Dio _dio = Dio();
-  final String _apiKey = dotenv.env['WEATHER_API_KEY'] ?? "";
+  final String _apiKey = "0e6b4ee78e214404b2b23400250707";
   final String _baseUrl = "https://api.weatherapi.com/v1/current.json";
 
   Future<Map<String, dynamic>> fetchWeatherConditions(Position position) async {
     try {
+      dev.log('API Key: $_apiKey');
       // Build the URL with lat,long format
       final url =
           '$_baseUrl?key=$_apiKey&q=${position.latitude},${position.longitude}';
+      dev.log('Calling weather API: $url');
 
       final response = await _dio.get(url);
 
       if (response.statusCode == 200) {
         final data = response.data;
+        dev.log('Weather data fetched successfully');
+        dev.log('Current temp: ${data['current']['temp_c']}°C');
+        dev.log('Weather description: ${data['current']['condition']['text']}');
 
         return _formatWeatherData(data);
       } else {

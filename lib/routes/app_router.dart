@@ -2,6 +2,7 @@ import "package:agrinix/routes/farmer_routes.dart";
 import "package:agrinix/screens/auth/login.dart";
 import "package:agrinix/screens/auth/register.dart";
 import "package:agrinix/screens/discover/discover_screen.dart";
+import "package:agrinix/screens/discover/single_pest_info.dart";
 import "package:agrinix/screens/onboarding/onboarding_screen.dart";
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
@@ -46,6 +47,15 @@ final GoRouter router = GoRouter(
                   },
                 );
               },
+              routes: [
+                GoRoute(
+                  path: 'pest/:id',
+                  builder: (context, state) {
+                    final pestData = state.extra as Map<String, dynamic>;
+                    return SinglePestInfo(pestData: pestData);
+                  },
+                ),
+              ],
             ),
           ],
         ),
