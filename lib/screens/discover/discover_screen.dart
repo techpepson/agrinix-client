@@ -51,6 +51,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
         isLoadingWeather = false;
       });
     } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("An error occurred getting location data")),
+      );
       setState(() {
         locationStatus = 'Location error: $e';
         isLoadingWeather = false;

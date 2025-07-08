@@ -1,8 +1,10 @@
 import "package:agrinix/routes/farmer_routes.dart";
 import "package:agrinix/screens/auth/login.dart";
 import "package:agrinix/screens/auth/register.dart";
+import "package:agrinix/screens/capture/capture_screen.dart";
 import "package:agrinix/screens/discover/discover_screen.dart";
 import "package:agrinix/screens/discover/single_pest_info.dart";
+import "package:agrinix/screens/library/crop_library.dart";
 import "package:agrinix/screens/onboarding/onboarding_screen.dart";
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
@@ -64,12 +66,12 @@ final GoRouter router = GoRouter(
         StatefulShellBranch(
           routes: [
             GoRoute(
-              path: '/capture',
+              path: '/library',
               builder: (context, state) {
                 return FutureBuilder(
                   future: Future.delayed(Duration(seconds: 10)),
                   builder: (context, snapshot) {
-                    return DiscoverScreen();
+                    return CropLibrary();
                   },
                 );
               },
@@ -81,12 +83,12 @@ final GoRouter router = GoRouter(
         StatefulShellBranch(
           routes: [
             GoRoute(
-              path: '/library',
+              path: '/capture',
               builder: (context, state) {
                 return FutureBuilder(
                   future: Future.delayed(Duration(seconds: 10)),
                   builder: (context, snapshot) {
-                    return DiscoverScreen();
+                    return CaptureScreen();
                   },
                 );
               },
