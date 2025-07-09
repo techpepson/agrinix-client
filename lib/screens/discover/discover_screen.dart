@@ -1,4 +1,5 @@
 import "package:agrinix/config/fonts/font_sizes.dart";
+import "package:agrinix/config/theme/app_theme.dart";
 import "package:agrinix/core/services/app_services.dart";
 import "package:agrinix/core/services/weather_services.dart";
 import "package:agrinix/data/discover_page_data.dart";
@@ -52,7 +53,15 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
       });
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("An error occurred getting location data")),
+        SnackBar(
+          backgroundColor: appTheme.colorScheme.error,
+          content: Text(
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.white),
+            "An error occurred getting location data. Please turn on your location services.",
+          ),
+        ),
       );
       setState(() {
         locationStatus = 'Location error: $e';

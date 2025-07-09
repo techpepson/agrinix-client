@@ -79,6 +79,7 @@ flutter:
     - assets/images/treat-crop.jpg
     - assets/images/farmer-login.jpg
     - assets/images/google-logo.png
+    - assets/images/image_bg.jpg
     - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see

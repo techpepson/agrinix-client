@@ -2,6 +2,9 @@ import "package:agrinix/routes/farmer_routes.dart";
 import "package:agrinix/screens/auth/login.dart";
 import "package:agrinix/screens/auth/register.dart";
 import "package:agrinix/screens/capture/capture_screen.dart";
+import "package:agrinix/screens/community/community_session.dart";
+import "package:agrinix/screens/community/create_message.dart";
+import "package:agrinix/screens/community/message_details.dart";
 import "package:agrinix/screens/discover/discover_screen.dart";
 import "package:agrinix/screens/discover/single_pest_info.dart";
 import "package:agrinix/screens/library/crop_library.dart";
@@ -105,10 +108,34 @@ final GoRouter router = GoRouter(
                 return FutureBuilder(
                   future: Future.delayed(Duration(seconds: 10)),
                   builder: (context, snapshot) {
-                    return DiscoverScreen();
+                    return CommunitySession();
                   },
                 );
               },
+              routes: [
+                GoRoute(
+                  path: 'message-details',
+                  builder: (context, state) {
+                    return FutureBuilder(
+                      future: Future.delayed(Duration(seconds: 5)),
+                      builder: (context, snapshot) {
+                        return MessageDetails();
+                      },
+                    );
+                  },
+                ),
+                GoRoute(
+                  path: 'create-message',
+                  builder: (context, state) {
+                    return FutureBuilder(
+                      future: Future.delayed(Duration(seconds: 5)),
+                      builder: (context, snapshot) {
+                        return CreateMessage();
+                      },
+                    );
+                  },
+                ),
+              ],
             ),
           ],
         ),
