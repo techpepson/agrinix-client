@@ -9,6 +9,7 @@ import "package:agrinix/screens/discover/discover_screen.dart";
 import "package:agrinix/screens/discover/single_pest_info.dart";
 import "package:agrinix/screens/library/crop_library.dart";
 import "package:agrinix/screens/onboarding/onboarding_screen.dart";
+import "package:agrinix/screens/settings/settings_screen.dart";
 import "package:flutter/material.dart";
 import "package:go_router/go_router.dart";
 
@@ -149,7 +150,7 @@ final GoRouter router = GoRouter(
                 return FutureBuilder(
                   future: Future.delayed(Duration(seconds: 10)),
                   builder: (context, snapshot) {
-                    return DiscoverScreen();
+                    return SettingsScreen();
                   },
                 );
               },

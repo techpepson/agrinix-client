@@ -28,7 +28,22 @@ class _CropLibraryState extends State<CropLibrary> {
           ),
         ),
         body: TabBarView(
-          children: [_buildCropItemList(), _buildDiseaseItemList()],
+          children: [
+            RefreshIndicator(
+              onRefresh: () async {
+                await Future.delayed(Duration(seconds: 1));
+                setState(() {});
+              },
+              child: _buildCropItemList(),
+            ),
+            RefreshIndicator(
+              onRefresh: () async {
+                await Future.delayed(Duration(seconds: 1));
+                setState(() {});
+              },
+              child: _buildDiseaseItemList(),
+            ),
+          ],
         ),
       ),
     );
