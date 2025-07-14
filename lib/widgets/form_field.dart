@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 
-class AppFormField extends StatelessWidget {
+class AppFormField extends StatefulWidget {
   final String label;
   final String hintText;
   final TextEditingController? controller;
   final bool obscureText;
   final String? Function(String?)? validator;
+  final String? helperText;
   final TextInputType? keyboardType;
   final void Function(String)? onChanged;
 
   const AppFormField({
     super.key,
+    this.helperText,
     required this.label,
     required this.hintText,
     this.controller,
@@ -21,18 +23,31 @@ class AppFormField extends StatelessWidget {
   });
 
   @override
+  State<AppFormField> createState() => _AppFormFieldState();
+}
+
+class _AppFormFieldState extends State<AppFormField> {
+  void handleVisibilityToggle() {
+    setState(() {
+      widget.obscureText == !widget.obscureText;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: TextFormField(
-        controller: controller,
-        obscureText: obscureText,
-        validator: validator,
-        keyboardType: keyboardType,
-        onChanged: onChanged,
+        controller: widget.controller,
+        obscureText: widget.obscureText,
+        validator: widget.validator,
+        keyboardType: widget.keyboardType,
+        onChanged: widget.onChanged,
         decoration: InputDecoration(
-          labelText: label,
-          hintText: hintText,
+          helperText: widget.helperText,
+          helperStyle: TextStyle(fontSize: 14),
+          labelText: widget.label,
+          hintText: widget.hintText,
           filled: true,
           fillColor: Colors.green[100],
           contentPadding: const EdgeInsets.symmetric(

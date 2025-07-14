@@ -1,21 +1,26 @@
+import 'package:agrinix/providers/auth_provider.dart';
+import 'package:agrinix/services/auth_services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../widgets/form_field.dart';
 import '../../widgets/buttons/submit_button.dart';
+import 'dart:developer' as dev;
 
-class Register extends StatefulWidget {
+class Register extends ConsumerStatefulWidget {
   const Register({super.key});
 
   @override
-  State<Register> createState() => _RegisterState();
+  ConsumerState<Register> createState() => _RegisterState();
 }
 
-class _RegisterState extends State<Register> {
+class _RegisterState extends ConsumerState<Register> {
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final AuthServices authServices = AuthServices();
   bool _loading = false;
 
   @override
@@ -30,17 +35,57 @@ class _RegisterState extends State<Register> {
   }
 
   void _onRegister() async {
-    if (_formKey.currentState?.validate() ?? false) {
-      setState(() => _loading = true);
-      // Simulate registration logic
-      await Future.delayed(const Duration(seconds: 2));
-      setState(() => _loading = false);
-      // TODO: Navigate or show success
+    try {
+      if (_formKey.currentState?.validate() ?? false) {
+        setState(() => _loading = true);
+        final request = await authServices.registerService(ref);
+        final status = request.statusCode;
+        final statusMessage = request.statusMessage;
+
+        if (status == 201) {
+          if (mounted) {
+            setState(() => _loading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Account created successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+
+            context.go('/onboard');
+          }
+        } else {
+          if (mounted) {
+            setState(() => _loading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$statusMessage'),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          }
+        }
+        // await Future.delayed(const Duration(seconds: 2));
+      }
+    } catch (e) {
+      dev.log(e.toString());
+      if (mounted) {
+        setState(() => _loading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: Colors.redAccent,
+            showCloseIcon: true,
+            content: Text(e.toString()),
+          ),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final provider = ref.read(authNotifierProvider.notifier);
+    final values = ref.watch(authNotifierProvider);
     return Scaffold(
       appBar: AppBar(),
       body: SafeArea(
@@ -70,6 +115,10 @@ class _RegisterState extends State<Register> {
                         label: 'Name',
                         hintText: 'Enter your name',
                         controller: _nameController,
+                        onChanged: (p0) {
+                          dev.log(values.name.toString(), name: "Name value");
+                          provider.updateName(p0);
+                        },
                         validator:
                             (value) =>
                                 value == null || value.isEmpty
@@ -81,6 +130,10 @@ class _RegisterState extends State<Register> {
                         hintText: 'Enter your email',
                         controller: _emailController,
                         keyboardType: TextInputType.emailAddress,
+                        onChanged: (p0) {
+                          dev.log(values.toString(), name: "Email Value");
+                          provider.updateEmail(p0);
+                        },
                         validator:
                             (value) =>
                                 value == null || !value.contains('@')
@@ -88,10 +141,19 @@ class _RegisterState extends State<Register> {
                                     : null,
                       ),
                       AppFormField(
+                        helperText:
+                            'Your password should include these [@, !, (0-9), (A-Z), (a-z)]',
                         label: 'Password',
                         hintText: 'Enter your password',
                         controller: _passwordController,
                         obscureText: true,
+                        onChanged: (p0) {
+                          dev.log(
+                            values.password.toString(),
+                            name: "Password value",
+                          );
+                          provider.updatePassword(p0);
+                        },
                         validator:
                             (value) =>
                                 value == null || value.length < 6

@@ -1,20 +1,30 @@
+import 'dart:convert';
+
+import 'package:agrinix/core/services/app_services.dart';
+import 'package:agrinix/providers/auth_provider.dart';
+import 'package:agrinix/services/auth_services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../widgets/form_field.dart';
 import '../../widgets/buttons/submit_button.dart';
+import 'dart:developer' as dev;
 
-class Login extends StatefulWidget {
+class Login extends ConsumerStatefulWidget {
   const Login({super.key});
 
   @override
-  State<Login> createState() => _LoginState();
+  ConsumerState<Login> createState() => _LoginState();
 }
 
-class _LoginState extends State<Login> {
+class _LoginState extends ConsumerState<Login> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _loading = false;
+
+  AuthServices authServices = AuthServices();
+  final AppServices appServices = AppServices();
 
   @override
   void dispose() {
@@ -24,15 +34,67 @@ class _LoginState extends State<Login> {
     super.dispose();
   }
 
-  void _onLogin() async {
+  Future<void> _onLogin() async {
     if (_formKey.currentState?.validate() ?? false) {
+      final provider = ref.read(authNotifierProvider);
       setState(() => _loading = true);
-      // Simulate login logic
-      await Future.delayed(const Duration(seconds: 2));
-      setState(() => _loading = false);
-      // TODO: Navigate or show success
-      if (mounted) {
-        context.go('/onboard');
+      try {
+        if (_formKey.currentState?.validate() ?? false) {
+          setState(() => _loading = true);
+          final request = await authServices.loginService(ref);
+          final status = request.statusCode;
+          final statusMessage = request.statusMessage;
+          final response = jsonDecode(request.data);
+
+          if (status == 200) {
+            final loginStatus = response['freqStatus'];
+            //set the response token to secure  storage
+            await appServices.storage.write(
+              key: 'token',
+              value: response['token'],
+            );
+
+            if (mounted) {
+              if (loginStatus != null && loginStatus == false) {
+                context.go('/onboard');
+              } else {
+                context.go('/discover');
+              }
+            }
+            setState(() => _loading = false);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Login Successful'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+          } else {
+            if (mounted) {
+              setState(() => _loading = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('$statusMessage'),
+                  backgroundColor: Colors.redAccent,
+                ),
+              );
+            }
+          }
+          // await Future.delayed(const Duration(seconds: 2));
+        }
+      } catch (e) {
+        dev.log(e.toString());
+        if (mounted) {
+          setState(() => _loading = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              backgroundColor: Colors.redAccent,
+              showCloseIcon: true,
+              content: Text(e.toString()),
+            ),
+          );
+        }
       }
     }
   }
