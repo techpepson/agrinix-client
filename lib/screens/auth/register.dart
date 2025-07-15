@@ -52,7 +52,7 @@ class _RegisterState extends ConsumerState<Register> {
               ),
             );
 
-            context.go('/onboard');
+            context.go('/');
           }
         } else {
           if (mounted) {

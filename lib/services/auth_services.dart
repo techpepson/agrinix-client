@@ -93,8 +93,8 @@ class AuthServices {
 
       return request;
     } catch (e) {
+      dev.log(e.toString());
       if (e is DioException && e.response != null) {
-        dev.log('Error data: ${e.response?.data}', name: 'Register Error');
         // Try to extract a message from the server response
         final errorData = e.response?.data;
         if (errorData is Map && errorData['message'] != null) {
@@ -103,7 +103,7 @@ class AuthServices {
           throw errorData;
         }
       }
-      throw "An error occurred while registering for an account.";
+      throw "An error occurred while logging into account.";
     }
   }
 }

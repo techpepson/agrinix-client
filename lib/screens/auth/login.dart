@@ -36,53 +36,50 @@ class _LoginState extends ConsumerState<Login> {
 
   Future<void> _onLogin() async {
     if (_formKey.currentState?.validate() ?? false) {
-      final provider = ref.read(authNotifierProvider);
       setState(() => _loading = true);
       try {
-        if (_formKey.currentState?.validate() ?? false) {
-          setState(() => _loading = true);
-          final request = await authServices.loginService(ref);
-          final status = request.statusCode;
-          final statusMessage = request.statusMessage;
-          final response = jsonDecode(request.data);
+        final request = await authServices.loginService(ref);
+        final status = request.statusCode;
+        final statusMessage = request.statusMessage;
+        final response =
+            request.data is String ? jsonDecode(request.data) : request.data;
+        final loginStatus = await response['freqStatus'];
 
-          if (status == 200) {
-            final loginStatus = response['freqStatus'];
-            //set the response token to secure  storage
-            await appServices.storage.write(
-              key: 'token',
-              value: response['token'],
-            );
+        if (status == 201) {
+          //set the response token to secure  storage
+          await appServices.storage.write(
+            key: 'token',
+            value: response['token'],
+          );
 
-            if (mounted) {
-              if (loginStatus != null && loginStatus == false) {
-                context.go('/onboard');
-              } else {
-                context.go('/discover');
-              }
-            }
-            setState(() => _loading = false);
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Login Successful'),
-                  backgroundColor: Colors.green,
-                ),
-              );
-            }
-          } else {
-            if (mounted) {
-              setState(() => _loading = false);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('$statusMessage'),
-                  backgroundColor: Colors.redAccent,
-                ),
-              );
+          if (mounted) {
+            if (loginStatus != null && loginStatus == false) {
+              context.go('/onboard');
+            } else {
+              context.go('/discover');
             }
           }
-          // await Future.delayed(const Duration(seconds: 2));
+          setState(() => _loading = false);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Login Successful'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            setState(() => _loading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('$statusMessage'),
+                backgroundColor: Colors.redAccent,
+              ),
+            );
+          }
         }
+        // await Future.delayed(const Duration(seconds: 2));
       } catch (e) {
         dev.log(e.toString());
         if (mounted) {
@@ -101,6 +98,8 @@ class _LoginState extends ConsumerState<Login> {
 
   @override
   Widget build(BuildContext context) {
+    final values = ref.watch(authNotifierProvider);
+    final notifier = ref.read(authNotifierProvider.notifier);
     return Scaffold(
       appBar: AppBar(),
       body: SafeArea(
@@ -130,6 +129,10 @@ class _LoginState extends ConsumerState<Login> {
                         label: 'Email',
                         hintText: 'Enter your email',
                         controller: _emailController,
+                        onChanged: (p0) {
+                          dev.log(values.email);
+                          notifier.updateEmail(p0);
+                        },
                         keyboardType: TextInputType.emailAddress,
                         validator:
                             (value) =>
@@ -138,6 +141,10 @@ class _LoginState extends ConsumerState<Login> {
                                     : null,
                       ),
                       AppFormField(
+                        onChanged: (p0) {
+                          dev.log(values.password);
+                          notifier.updatePassword(p0);
+                        },
                         label: 'Password',
                         hintText: 'Enter your password',
                         controller: _passwordController,
