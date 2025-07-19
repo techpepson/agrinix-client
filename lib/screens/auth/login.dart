@@ -52,6 +52,11 @@ class _LoginState extends ConsumerState<Login> {
             value: response['token'],
           );
 
+          await appServices.storage.write(
+            key: 'userId',
+            value: response['userId'],
+          );
+
           if (mounted) {
             if (loginStatus != null && loginStatus == false) {
               context.go('/onboard');

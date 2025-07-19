@@ -1,20 +1,27 @@
+import 'dart:convert';
 import 'dart:io';
+import 'package:agrinix/services/crop_capture_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:agrinix/screens/library/single_crop_details.dart';
+import 'dart:developer' as dev;
 
-class CaptureScreen extends StatefulWidget {
+class CaptureScreen extends ConsumerStatefulWidget {
   const CaptureScreen({super.key});
 
   @override
-  State<CaptureScreen> createState() => _CaptureScreenState();
+  ConsumerState<CaptureScreen> createState() => _CaptureScreenState();
 }
 
-class _CaptureScreenState extends State<CaptureScreen> {
+class _CaptureScreenState extends ConsumerState<CaptureScreen> {
   final ImagePicker _picker = ImagePicker();
   File? _capturedImage;
   bool _isAnalyzing = false;
   Map<String, dynamic>? _analysisResult;
+  String errorText = '';
+
+  final CropCaptureService cropCaptureService = CropCaptureService();
 
   Future<void> _captureImageFromCamera() async {
     try {
@@ -67,50 +74,74 @@ class _CaptureScreenState extends State<CaptureScreen> {
 
     setState(() {
       _isAnalyzing = true;
+      errorText = '';
     });
 
     try {
-      // Simulate API call to analyze the image
-      await Future.delayed(const Duration(seconds: 3));
+      dev.log(_capturedImage.toString());
+      final request = await cropCaptureService.uploadCropImage(
+        _capturedImage,
+        ref,
+      );
 
-      // Mock analysis result - replace with actual API call
-      final mockResult = {
-        'cropName': 'Tomato',
-        'diseaseClass': 'early_blight',
-        'diseaseDescription':
-            'Early blight is a common fungal disease that affects tomato plants, causing dark spots on leaves and stems',
-        'predictionAccuracy': 0.95,
-        'diseaseCauses': [
-          'Fungal infection due to high humidity',
-          'Poor air circulation around plants',
-          'Overwatering and waterlogged soil',
-        ],
-        'diseaseSymptoms': [
-          'Dark brown spots with concentric rings on leaves',
-          'Yellowing of leaves around the spots',
-          'Stem lesions that can girdle the plant',
-          'Fruit rot and premature fruit drop',
-        ],
-        'diseasePrevention': [
-          'Ensure proper spacing between plants for air circulation',
-          'Water at the base of plants to avoid wetting leaves',
-          'Apply fungicide preventatively',
-          'Remove and destroy infected plant debris',
-        ],
-        'imageUrl': [
-          'https://res.cloudinary.com/dqriuqty5/image/upload/v1751707119/klcmtdfj8zcd3yqfqltu.jpg',
-        ],
-      };
+      final results =
+          request.data is String ? jsonDecode(request.data) : request.data;
 
-      setState(() {
-        _analysisResult = mockResult;
-        _isAnalyzing = false;
-      });
+      if (request.statusCode == 201 || request.statusCode == 200) {
+        // If the response only contains a message and no prediction, show the message
+        if (results is Map &&
+            results.containsKey('message') &&
+            results.length == 1) {
+          setState(() {
+            _isAnalyzing = false;
+            errorText = results['message'] ?? 'No disease prediction found.';
+            _analysisResult = null;
+          });
+          return;
+        }
+        // Parse the server response for relevant fields and map to SingleCropDetails expectations
+        final diseaseInfo = results['diseaseInfo'] ?? {};
+        final prediction =
+            results['response']?['outputs']?[0]?['model_prediction_output'] ??
+            {};
+        final confidence = prediction['confidence'] ?? 0.0;
+        final cropName = results['cropName'] ?? '';
+        final diseaseClass = results['class'] ?? '';
+        final description = diseaseInfo['description'] ?? '';
+        final causes = (diseaseInfo['causes'] as List?)?.cast<String>() ?? [];
+        final symptoms =
+            (diseaseInfo['symptoms'] as List?)?.cast<String>() ?? [];
+        final prevention =
+            (diseaseInfo['prevention'] as List?)?.cast<String>() ?? [];
+        final treatment =
+            (diseaseInfo['treatment'] as List?)?.cast<String>() ?? [];
+        final source = diseaseInfo['source'] ?? '';
+        final imageUrl = results['imageUrl'] ?? '';
+
+        setState(() {
+          _analysisResult = {
+            'name': cropName,
+            'diseaseClass': diseaseClass,
+            'predictionAccuracy': confidence, // for _buildAccuracyCard
+            'diseaseDescription': description,
+            'diseaseCauses': causes,
+            'diseaseSymptoms': symptoms,
+            'diseasePrevention': prevention,
+            'diseaseTreatment': treatment,
+            'source': source,
+            'imageUrl': imageUrl,
+          };
+          _isAnalyzing = false;
+          errorText = '';
+        });
+        dev.log(name: "Server response", results.toString());
+      }
     } catch (e) {
       setState(() {
         _isAnalyzing = false;
+        errorText = 'Failed to analyze image. Please try again.';
       });
-      print('Error analyzing image: $e');
+      // print('Error analyzing image: $e');
       _showErrorSnackBar('Failed to analyze image. Please try again.');
     }
   }
@@ -119,6 +150,7 @@ class _CaptureScreenState extends State<CaptureScreen> {
     setState(() {
       _capturedImage = null;
       _analysisResult = null;
+      errorText = '';
     });
   }
 
@@ -139,6 +171,18 @@ class _CaptureScreenState extends State<CaptureScreen> {
       padding: const EdgeInsets.all(16),
       child: Column(
         children: [
+          if (errorText.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: Text(
+                errorText,
+                style: TextStyle(
+                  color: Colors.red[700],
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
           // Header section
           Expanded(
             flex: 2,
@@ -190,6 +234,10 @@ class _CaptureScreenState extends State<CaptureScreen> {
                 _buildInstructionItem(
                   icon: Icons.lightbulb,
                   text: 'Ensure good lighting',
+                ),
+                _buildInstructionItem(
+                  icon: Icons.block,
+                  text: 'Non crop images will not be processed',
                 ),
                 _buildInstructionItem(
                   icon: Icons.center_focus_strong,
@@ -356,140 +404,216 @@ class _CaptureScreenState extends State<CaptureScreen> {
 
   Widget _buildAnalysisResults() {
     final result = _analysisResult!;
-    final accuracy = (result['predictionAccuracy'] * 100).toStringAsFixed(0);
+    final accuracy = (result['predictionAccuracy'] * 100).toStringAsFixed(1);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Header
-        Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green[600], size: 32),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Analysis Complete',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'Crop: ${result['cropName']}',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-
-        // Disease info card
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green[600], size: 32),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.red[100],
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        result['diseaseClass'] ?? 'Unknown Disease',
-                        style: TextStyle(
-                          color: Colors.red[800],
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
+                    Text(
+                      'Analysis Complete',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[100],
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        '$accuracy% Confidence',
-                        style: TextStyle(
-                          color: Colors.blue[800],
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
+                    Text(
+                      'Crop: ${result['name']}',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
-                Text(
-                  result['diseaseDescription'] ?? 'No description available',
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Disease info card
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.red[100],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          result['diseaseClass'] ?? 'Unknown Disease',
+                          style: TextStyle(
+                            color: Colors.red[800],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 6,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[100],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '$accuracy% Confidence',
+                          style: TextStyle(
+                            color: Colors.blue[800],
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    result['diseaseDescription'] ?? 'No description available',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                  const SizedBox(height: 12),
+                  if ((result['diseaseCauses'] as List).isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Causes:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        ...List<Widget>.from(
+                          (result['diseaseCauses'] as List).map(
+                            (c) => Text('- $c'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  if ((result['diseaseSymptoms'] as List).isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Symptoms:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        ...List<Widget>.from(
+                          (result['diseaseSymptoms'] as List).map(
+                            (s) => Text('- $s'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  if ((result['diseasePrevention'] as List).isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Prevention:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        ...List<Widget>.from(
+                          (result['diseasePrevention'] as List).map(
+                            (p) => Text('- $p'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  if ((result['diseaseTreatment'] as List).isNotEmpty)
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Treatment:',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        ...List<Widget>.from(
+                          (result['diseaseTreatment'] as List).map(
+                            (t) => Text('- $t'),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  if ((result['source'] as String).isNotEmpty)
+                    Text(
+                      'Source: ${result['source']}',
+                      style: TextStyle(
+                        fontStyle: FontStyle.italic,
+                        fontSize: 12,
+                      ),
+                    ),
+                ],
+              ),
             ),
           ),
-        ),
-        const SizedBox(height: 16),
+          const SizedBox(height: 16),
 
-        // Action buttons
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => SingleCropDetails(cropData: result),
+          // Action buttons
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder:
+                            (context) => SingleCropDetails(cropData: result),
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.info_outline),
+                  label: const Text('See Details'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[600],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                  );
-                },
-                icon: const Icon(Icons.info_outline),
-                label: const Text('See Details'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green[600],
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _resetCapture,
-                icon: const Icon(Icons.refresh),
-                label: const Text('New Photo'),
-                style: OutlinedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _resetCapture,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('New Photo'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

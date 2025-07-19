@@ -2,7 +2,6 @@ import "package:agrinix/config/fonts/font_sizes.dart";
 import "package:agrinix/config/theme/app_theme.dart";
 import "package:agrinix/core/services/app_services.dart";
 import "package:agrinix/core/services/weather_services.dart";
-import "package:agrinix/data/discover_page_data.dart";
 import "package:agrinix/providers/fetch_crop_pest_provider.dart";
 import "package:cached_network_image/cached_network_image.dart";
 import "package:flutter/material.dart";
@@ -188,7 +187,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen> {
                   padding: const EdgeInsets.symmetric(vertical: 32),
                   child: Center(
                     child: Text(
-                      'No pest data found.',
+                      'Loading pest data...',
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
                   ),

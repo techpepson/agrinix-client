@@ -1,20 +1,25 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:agrinix/services/messages_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:agrinix/providers/message_provider.dart';
 
-class CreateMessage extends StatefulWidget {
+class CreateMessage extends ConsumerStatefulWidget {
   const CreateMessage({super.key});
 
   @override
-  State<CreateMessage> createState() => _CreateMessageState();
+  ConsumerState<CreateMessage> createState() => _CreateMessageState();
 }
 
-class _CreateMessageState extends State<CreateMessage> {
+class _CreateMessageState extends ConsumerState<CreateMessage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   File? _capturedImage;
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
+
+  final MessagesService messagesService = MessagesService();
 
   @override
   void dispose() {
@@ -101,21 +106,33 @@ class _CreateMessageState extends State<CreateMessage> {
       _isLoading = true;
     });
 
-    // Simulate API call
-    await Future.delayed(Duration(seconds: 2));
+    // Update the messageProvider state with the current form values
+    ref
+        .read(messageProvider.notifier)
+        .updateMessageTitle(_titleController.text.trim());
+    ref
+        .read(messageProvider.notifier)
+        .updateMessageBody(_descriptionController.text.trim());
+    // You can add messageLink if you have a field for it
 
-    setState(() {
-      _isLoading = false;
-    });
-
-    _showSuccessSnackBar('Message posted successfully!');
-
-    // Clear form
-    _titleController.clear();
-    _descriptionController.clear();
-    setState(() {
-      _capturedImage = null;
-    });
+    try {
+      await messagesService.sendMessage(ref, _capturedImage);
+      setState(() {
+        _isLoading = false;
+      });
+      _showSuccessSnackBar('Message posted successfully!');
+      // Clear form
+      _titleController.clear();
+      _descriptionController.clear();
+      setState(() {
+        _capturedImage = null;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      _showErrorSnackBar(e.toString());
+    }
   }
 
   @override
@@ -287,6 +304,11 @@ class _CreateMessageState extends State<CreateMessage> {
         ),
         SizedBox(height: 20),
         _buildTextField(
+          onChanged: (value) {
+            setState(() {
+              ref.read(messageProvider.notifier).updateMessageTitle(value);
+            });
+          },
           controller: _titleController,
           hintText: "Enter a clear, descriptive title",
           maxLength: 100,
@@ -296,6 +318,11 @@ class _CreateMessageState extends State<CreateMessage> {
         ),
         SizedBox(height: 20),
         _buildTextField(
+          onChanged: (value) {
+            setState(() {
+              ref.read(messageProvider.notifier).updateMessageBody(value);
+            });
+          },
           controller: _descriptionController,
           hintText:
               "Provide detailed description of your question or concern. Be specific and polite.",
@@ -309,6 +336,7 @@ class _CreateMessageState extends State<CreateMessage> {
   }
 
   Widget _buildTextField({
+    required ValueChanged<String> onChanged,
     required TextEditingController controller,
     required String hintText,
     required int maxLength,
@@ -346,6 +374,7 @@ class _CreateMessageState extends State<CreateMessage> {
             ],
           ),
           child: TextField(
+            onChanged: onChanged,
             controller: controller,
             maxLines: maxLines,
             maxLength: maxLength,

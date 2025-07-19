@@ -1,14 +1,17 @@
+import 'package:agrinix/core/services/app_services.dart';
 import 'package:flutter/material.dart';
 import 'package:agrinix/data/community_data.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
-class SettingsScreen extends StatefulWidget {
+class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool notificationsEnabled = true;
   String selectedLanguage = 'English';
   ThemeMode selectedTheme = ThemeMode.system;
@@ -274,15 +277,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ListTile(
               leading: Icon(Icons.lock_outline),
               title: Text('Change Password'),
-              onTap: () {
+              onTap: () async {
                 // TODO: Implement change password
               },
             ),
             ListTile(
               leading: Icon(Icons.logout, color: Colors.redAccent),
               title: Text('Logout', style: TextStyle(color: Colors.redAccent)),
-              onTap: () {
-                // TODO: Implement logout
+              onTap: () async {
+                if (mounted) {
+                  final AppServices services = AppServices();
+                  await services.deleteFromStorage('token');
+                  await services.deleteFromStorage('userId');
+
+                  context.go('/');
+                }
               },
             ),
             SizedBox(height: 24),

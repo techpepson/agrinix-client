@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:agrinix/models/auth_model.dart';
 import 'package:agrinix/providers/auth_provider.dart';
 import 'package:dio/dio.dart';
@@ -8,7 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:developer' as dev;
 
 class AuthServices {
-  final dio = Dio();
+  final dio = Dio(BaseOptions(connectTimeout: Duration(seconds: 30)));
 
   //register service
   Future<Response> registerService(WidgetRef ref) async {
@@ -72,6 +70,7 @@ class AuthServices {
       }
 
       final provider = ref.watch(authNotifierProvider);
+      dev.log(name: 'Base url', baseUrl);
 
       //get the models for the auth
       final AuthModel authModel = AuthModel(

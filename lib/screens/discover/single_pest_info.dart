@@ -199,7 +199,7 @@ class _SinglePestInfoState extends State<SinglePestInfo> {
                     const SizedBox(height: 12),
                     ...descriptions
                         .map((desc) => _buildDescriptionCard(desc))
-                        .toList(),
+                        ,
                     const SizedBox(height: 24),
                   ],
 
@@ -209,7 +209,7 @@ class _SinglePestInfoState extends State<SinglePestInfo> {
                     const SizedBox(height: 12),
                     ...solutions
                         .map((solution) => _buildSolutionCard(solution))
-                        .toList(),
+                        ,
                     const SizedBox(height: 24),
                   ],
 

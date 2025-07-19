@@ -1,6 +1,5 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:geolocator/geolocator.dart';
-import "dart:developer" as dev;
 
 class AppServices {
   final FlutterSecureStorage storage = FlutterSecureStorage();

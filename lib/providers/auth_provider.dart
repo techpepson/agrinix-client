@@ -1,6 +1,5 @@
 import 'package:agrinix/models/auth_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'dart:developer' as dev;
 
 class AuthProvider extends StateNotifier<AuthModel> {
   AuthProvider()
