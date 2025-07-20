@@ -54,7 +54,7 @@ assets/
 ### 1. **Clone the Repository**
 
 ```sh
-git clone https://github.com/your-username/agrinix_app.git
+git clone https://github.com/techpepson/agrinix_app.git
 cd agrinix_app
 ```
 
@@ -69,7 +69,10 @@ flutter pub get
 - Copy the `.env.example` (if available) to `.env` and fill in your API keys and server URLs.
 - Example:
   ```env
-  SERVER_BASE_URL=https://your-api-url.com
+  PERENUAL_API_KEY = "sk-SyJZ685ff5348f2ad11197"
+  PERENUAL_API_CROP_PEST_ENDPOINT = "https://perenual.com/api/pest-disease-list"
+  WEATHER_API_KEY = '0e6b4ee78e214404b2b23400250707'
+  SERVER_BASE_URL = 'https://agrinixserver.forxai.me/api'
   ```
 
 ### 4. **Run the App**
@@ -129,8 +132,8 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ## 📬 Contact & Support
 
-- **Project Lead:** [Your Name](mailto:your.email@example.com)
-- **Issues:** Please use the [GitHub Issues](https://github.com/your-username/agrinix_app/issues) page for bug reports and feature requests.
+- **Project Lead:** [Dickson Daniel Peprah](mailto:mobelixdev@gmail.com)
+- **Issues:** Please use the [GitHub Issues](https://github.com/techpepson/agrinix_app/issues) page for bug reports and feature requests.
 
 ---
 

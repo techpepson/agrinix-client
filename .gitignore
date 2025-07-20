@@ -10,6 +10,7 @@
 .history
 .svn/
 .swiftpm/
+key.properties
 migrate_working_dir/
 .env
 
