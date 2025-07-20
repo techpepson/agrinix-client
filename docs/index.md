@@ -54,7 +54,7 @@ assets/
 ### 1. **Clone the Repository**
 
 ```sh
-git clone https://github.com/techpepson/agrinix_app.git
+git clone https://github.com/techpepson/agrinix-client.git
 cd agrinix_app
 ```
 
@@ -133,7 +133,7 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 ## 📬 Contact & Support
 
 - **Project Lead:** [Dickson Daniel Peprah](mailto:mobelixdev@gmail.com)
-- **Issues:** Please use the [GitHub Issues](https://github.com/techpepson/agrinix_app/issues) page for bug reports and feature requests.
+- **Issues:** Please use the [GitHub Issues](https://github.com/techpepson/agrinix-client/issues) page for bug reports and feature requests.
 
 ---
 
