@@ -4,6 +4,8 @@ Agrinix is a mobile application designed to aid farmers in early detection of cr
 
 ---
 
+### Documentation
+[Full documentation can be found here](https://agrinixdocs.forxai.me)
 ## 🚀 Features
 
 - **AI Crop Disease Detection:** Instantly diagnose crop diseases by capturing or uploading images.
